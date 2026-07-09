@@ -11,16 +11,30 @@
 # -----------------------------------------------------------------------------
 # Central connectivity
 # -----------------------------------------------------------------------------
-# One load balancer fronts your central estate: the Wazuh cluster master, the
-# Wazuh API, and Graylog. Set it once here and it is reused everywhere below.
+# One load balancer fronts the central Pulse estate: the cluster master, the
+# Pulse API, and the Pulse SIEM. Set it once here and it is reused everywhere.
 #
 # Outbound ports this sensor needs to reach CENTRAL_HOST (load balancer):
 #   55002 Wazuh cluster sync   (worker -> master, LB maps to 1516) [required]
-#   55000 Wazuh API                                                [required]
-#   55001 Graylog (Fluent Bit json_lines, LB maps to 5555)         [required]
+#   55000 Pulse API                                                [required]
+#   55001 Pulse SIEM (Fluent Bit json_lines, LB maps to 5555)      [required]
 #   1514  Wazuh agent events   (only if you route agents via it)   [optional]
 #   1515  Wazuh agent enrol     (only if you route agents via it)  [optional]
 CENTRAL_HOST=xdr.lon.cyber-defence.io
+
+# -----------------------------------------------------------------------------
+# Client identity
+# -----------------------------------------------------------------------------
+# The client ID assigned to you by UK Cyber Defence. It builds the Wazuh agent
+# group names that EVERY endpoint on this network MUST join:
+#
+#   Windows endpoints -> <CLIENTID>_windows_azure
+#   Linux endpoints   -> <CLIENTID>_linux_azure
+#
+# These groups are created centrally in the Pulse cluster by UK Cyber Defence.
+# ./configure.sh prints the exact group names and writes them to
+# generated/agent-groups.txt for use in the agent install commands.
+CLIENTID=CHANGE_ME_client_id
 
 # -----------------------------------------------------------------------------
 # Wazuh cluster
@@ -63,9 +77,9 @@ WAZUH_REGISTRATION_PASSWORD=CHANGE_ME_enrollment_password
 # Log forwarding (Fluent Bit)
 # -----------------------------------------------------------------------------
 # Fluent Bit tails the Wazuh alerts and forwards them over TCP (json_lines) to
-# Graylog, which sits behind CENTRAL_HOST on the port below.
+# the Pulse SIEM, which sits behind CENTRAL_HOST on the port below.
 
-# Graylog json_lines input port on the load balancer (default 55001).
+# Pulse SIEM json_lines input port on the load balancer (default 55001).
 LOG_DEST_PORT=55001
 
 # How often (seconds) Fluent Bit flushes buffered records to the collector.
