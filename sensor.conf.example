@@ -14,12 +14,12 @@
 # One load balancer fronts your central estate: the Wazuh cluster master, the
 # Wazuh API, and Graylog. Set it once here and it is reused everywhere below.
 #
-# Outbound ports this sensor needs to reach CENTRAL_HOST:
-#   1516  Wazuh cluster sync   (worker -> master)         [required]
-#   55000 Wazuh API                                       [required]
-#   55001 Graylog (Fluent Bit json_lines)                 [required]
-#   1514  Wazuh agent events   (only if you route via it) [optional]
-#   1515  Wazuh agent enrol     (only if you route via it) [optional]
+# Outbound ports this sensor needs to reach CENTRAL_HOST (load balancer):
+#   55002 Wazuh cluster sync   (worker -> master, LB maps to 1516) [required]
+#   55000 Wazuh API                                                [required]
+#   55001 Graylog (Fluent Bit json_lines, LB maps to 5555)         [required]
+#   1514  Wazuh agent events   (only if you route agents via it)   [optional]
+#   1515  Wazuh agent enrol     (only if you route agents via it)  [optional]
 CENTRAL_HOST=xdr.lon.cyber-defence.io
 
 # -----------------------------------------------------------------------------
@@ -42,8 +42,9 @@ WAZUH_NODE_TYPE=worker
 # Generate one on the master with: openssl rand -hex 16
 WAZUH_CLUSTER_KEY=CHANGE_ME_32_HEX_CHARACTERS_000000
 
-# Cluster sync port that the load balancer routes to the master (default 1516).
-WAZUH_CLUSTER_PORT=1516
+# Cluster sync port ON THE LOAD BALANCER. The worker dials CENTRAL_HOST on this
+# port; the LB forwards it to the master's internal cluster port (1516).
+WAZUH_CLUSTER_PORT=55002
 
 # Central Wazuh API port (the worker/manager reaches this on CENTRAL_HOST).
 WAZUH_API_PORT=55000

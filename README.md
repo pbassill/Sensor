@@ -6,8 +6,8 @@ security **sensor**. It runs:
 - **Wazuh manager** as a *worker node* that registers into your central Wazuh
   cluster through your load balancer (`CENTRAL_HOST`). Local agents on the
   internal network enroll and report to this sensor; the sensor syncs their
-  data up to the cluster master over the cluster port (1516) and reaches the
-  Wazuh API on 55000.
+  data up to the cluster master over the LB's cluster port (55002, forwarded to
+  the master's internal 1516) and reaches the Wazuh API on 55000.
 - **Fluent Bit**, which tails the Wazuh alert files and forwards them over TCP
   (`json_lines`) to **Graylog**, which sits behind the same load balancer.
 
@@ -26,12 +26,12 @@ never touch the Wazuh or Fluent Bit configuration directly.
         └─────────────┼─────────────┘
                       ▼
              ┌───────────────────┐                    ┌─────────────────────┐
-             │   S E N S O R     │  cluster 1516 ───► │  CENTRAL_HOST        │
-             │                   │  API 55000    ───► │  (load balancer)     │
+             │   S E N S O R     │  cluster 55002 ──► │  CENTRAL_HOST        │
+             │                   │  API 55000    ───► │  (HAProxy LB)        │
              │  Wazuh manager    │                    │                      │
-             │   (worker node)   │                    │  → Wazuh master      │
-             │  + Fluent Bit     │  json_lines 55001► │  → Wazuh API         │
-             └───────────────────┘                    │  → Graylog           │
+             │   (worker node)   │                    │  55002 → master 1516 │
+             │  + Fluent Bit     │  json_lines 55001► │  55000 → API 55000   │
+             └───────────────────┘                    │  55001 → Graylog 5555│
                                                        └─────────────────────┘
 ```
 
@@ -40,9 +40,9 @@ never touch the Wazuh or Fluent Bit configuration directly.
 - Docker Engine 20.10+ and the Docker Compose plugin
 - `bash`, `envsubst` (`gettext-base`), and `openssl` on the host
 - Outbound reachability from the sensor to `CENTRAL_HOST` on:
-  - **1516** — Wazuh cluster sync (worker → master)
+  - **55002** — Wazuh cluster sync (worker → master; LB forwards to 1516)
   - **55000** — Wazuh API
-  - **55001** — Graylog (Fluent Bit `json_lines`)
+  - **55001** — Graylog (Fluent Bit `json_lines`; LB forwards to 5555)
 - Inbound reachability from local agents to the sensor on **1514/1515**
 
 Sizing: `vm.max_map_count` and file/mem limits are set in the compose file; the
@@ -152,7 +152,7 @@ docker compose down
 |------|-------|-----------|-----------------------------------------------|
 | 1514 | TCP   | inbound   | Local agent event reporting                   |
 | 1515 | TCP   | inbound   | Local agent enrollment (authd)                |
-| 1516 | TCP   | outbound  | Cluster sync to master via `CENTRAL_HOST`     |
+| 55002| TCP   | outbound  | Cluster sync to master via `CENTRAL_HOST`     |
 | 55000| TCP   | outbound  | Wazuh API on `CENTRAL_HOST`                    |
 | 55001| TCP   | outbound  | Fluent Bit → Graylog via `CENTRAL_HOST`       |
 | 55000| TCP   | inbound   | This manager's own Wazuh API (optional)       |
@@ -163,8 +163,8 @@ docker compose down
 
 - **Worker won't join the cluster:** confirm `WAZUH_CLUSTER_KEY`,
   `WAZUH_CLUSTER_NAME`, and Wazuh version match the master, and that the sensor
-  can reach `CENTRAL_HOST` on the cluster port (1516) — the load balancer must
-  pass 1516 through to the master. Check
+  can reach `CENTRAL_HOST` on the cluster port (55002) — the load balancer's
+  `cluster_sync` frontend forwards 55002 to the master's 1516. Check
   `docker exec sensor-wazuh-manager /var/ossec/bin/cluster_control -l`.
 - **No logs in Graylog:** verify Graylog has a raw/TCP input behind
   `CENTRAL_HOST` on `LOG_DEST_PORT` that accepts `json_lines`, that the sensor
