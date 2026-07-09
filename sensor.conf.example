@@ -30,10 +30,10 @@ CENTRAL_HOST=xdr.lon.cyber-defence.io
 # the cluster port. Local agents on this internal network report to this worker.
 
 # A friendly name for your cluster. MUST match the name configured on the master.
-WAZUH_CLUSTER_NAME=reeve-cluster
+WAZUH_CLUSTER_NAME=pulse
 
 # Unique name for THIS sensor node within the cluster (no spaces).
-WAZUH_NODE_NAME=sensor-01
+WAZUH_NODE_NAME={client_name}-sensor-{id}
 
 # Node type. Keep this as "worker" - the master lives on your central cluster.
 WAZUH_NODE_TYPE=worker
@@ -80,7 +80,7 @@ FORWARD_ARCHIVES=false
 # -----------------------------------------------------------------------------
 # Wazuh version. Manager and agents should match this major.minor version, and
 # it MUST match the version running on your central cluster master.
-WAZUH_VERSION=4.9.2
+WAZUH_VERSION=4.14.6
 
 # Timezone for the containers (IANA name).
 SENSOR_TIMEZONE=Europe/London
