@@ -3,19 +3,13 @@
 A self-contained Docker stack that turns any host on an internal network into a
 security **sensor**. It runs:
 
-- **Wazuh manager** as a *worker node* that registers into your central Wazuh
-  cluster through your load balancer (`CENTRAL_HOST`). Local agents on the
-  internal network enroll and report to this sensor; the sensor syncs their
-  data up to the cluster master over the LB's cluster port (55002, forwarded to
-  the master's internal 1516) and reaches the Wazuh API on 55000.
-- **Fluent Bit**, which tails the Wazuh alert files and forwards them over TCP
-  (`json_lines`) to **Graylog**, which sits behind the same load balancer.
+- **Sensor** as a *worker node* that registers into the UKCDL central cluster through the UKCDL load balancers (`CENTRAL_HOST`). Local agents on the internal network enroll and report to this sensor; the sensor syncs their
+  data up to the cluster master over the LB's cluster port and reaches port TCP:55000.
+- **Fluent Bit**, which tails the Wazuh alert files and forwards them over TCP (`json_lines`) to the **Pulse SIEM** , which sits behind the same load balancer.
 
-A single load balancer (`CENTRAL_HOST`, e.g. `xdr.lon.cyber-defence.io`) fronts
-the whole central estate — the Wazuh cluster master, the Wazuh API, and Graylog.
+A single load balancer (`CENTRAL_HOST`, e.g. `xdr.lon.cyber-defence.io`) fronts the whole central estate — the Pulse cluster master, the Pulse API, and Graylog.
 
-Everything is driven by a single client-editable file, **`sensor.conf`**. You
-never touch the Wazuh or Fluent Bit configuration directly.
+Everything is driven by a single client-editable file, **`sensor.conf`**. You never touch the local Wazuh or Fluent Bit configuration directly.
 
 ```
                           Internal network
@@ -31,7 +25,7 @@ never touch the Wazuh or Fluent Bit configuration directly.
              │  Wazuh manager    │                    │                      │
              │   (worker node)   │                    │  55002 → master 1516 │
              │  + Fluent Bit     │  json_lines 55001► │  55000 → API 55000   │
-             └───────────────────┘                    │  55001 → Graylog 5555│
+             └───────────────────┘                    │  55001 → Pulse SIEM  │
                                                        └─────────────────────┘
 ```
 
