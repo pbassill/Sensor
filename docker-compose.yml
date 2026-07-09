@@ -1,0 +1,86 @@
+# =============================================================================
+# Sensor - Wazuh manager (worker) + Fluent Bit -> Graylog
+# -----------------------------------------------------------------------------
+# Before running: edit sensor.conf and run ./configure.sh to render the configs
+# into ./generated. Then: docker compose up -d
+# =============================================================================
+
+services:
+  wazuh-manager:
+    image: wazuh/wazuh-manager:${WAZUH_VERSION:-4.9.2}
+    container_name: sensor-wazuh-manager
+    hostname: ${WAZUH_NODE_NAME:-sensor-01}
+    restart: unless-stopped
+    environment:
+      - TZ=${SENSOR_TIMEZONE:-UTC}
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 655360
+        hard: 655360
+    ports:
+      # Agent event reporting
+      - "1514:1514/tcp"
+      # Agent enrollment (authd)
+      - "1515:1515/tcp"
+      # Cluster port (worker <-> master). Outbound to the master; also listens.
+      - "1516:1516/tcp"
+      # Optional: syslog input
+      - "514:514/udp"
+      # Optional: Wazuh API
+      - "55000:55000/tcp"
+    volumes:
+      # Rendered manager config (cluster settings come from sensor.conf).
+      - ./generated/wazuh/ossec.conf:/wazuh-config-mount/etc/ossec.conf:ro
+      # Enrollment password for local agents (authd).
+      - ./generated/wazuh/authd.pass:/wazuh-config-mount/etc/authd.pass:ro
+      # Persist manager state.
+      - wazuh_api_configuration:/var/ossec/api/configuration
+      - wazuh_etc:/var/ossec/etc
+      - wazuh_queue:/var/ossec/queue
+      - wazuh_var_multigroups:/var/ossec/var/multigroups
+      - wazuh_integrations:/var/ossec/integrations
+      - wazuh_active_response:/var/ossec/active-response/bin
+      - wazuh_agentless:/var/ossec/agentless
+      - wazuh_wodles:/var/ossec/wodles
+      # Shared logs, read by Fluent Bit.
+      - wazuh_logs:/var/ossec/logs
+    networks:
+      - sensor
+
+  fluent-bit:
+    image: fluent/fluent-bit:${FLUENT_BIT_VERSION:-3.1}
+    container_name: sensor-fluent-bit
+    restart: unless-stopped
+    depends_on:
+      - wazuh-manager
+    environment:
+      - TZ=${SENSOR_TIMEZONE:-UTC}
+    volumes:
+      # Rendered Fluent Bit config (Graylog target comes from sensor.conf).
+      - ./generated/fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+      - ./generated/fluent-bit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
+      # Read the manager's logs.
+      - wazuh_logs:/var/ossec/logs:ro
+      # Persist tail read offsets across restarts.
+      - fluentbit_state:/var/log/flb-state
+    networks:
+      - sensor
+
+volumes:
+  wazuh_api_configuration:
+  wazuh_etc:
+  wazuh_queue:
+  wazuh_var_multigroups:
+  wazuh_integrations:
+  wazuh_active_response:
+  wazuh_agentless:
+  wazuh_wodles:
+  wazuh_logs:
+  fluentbit_state:
+
+networks:
+  sensor:
+    driver: bridge

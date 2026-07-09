@@ -1,0 +1,72 @@
+# =============================================================================
+# Fluent Bit configuration for the Sensor.
+# This file is a TEMPLATE. Values in ${...} are filled in from sensor.conf by
+# ./configure.sh. Do not edit generated/fluent-bit/fluent-bit.conf directly -
+# edit sensor.conf and re-run ./configure.sh.
+#
+# Fluent Bit tails the Wazuh manager's alert and log files and ships them to
+# Graylog over GELF.
+# =============================================================================
+
+[SERVICE]
+    Flush         ${FLUENT_BIT_FLUSH}
+    Log_Level     info
+    Daemon        off
+    Parsers_File  parsers.conf
+    HTTP_Server   Off
+
+# ---- Wazuh JSON alerts (level >= log_alert_level in ossec.conf) ----
+[INPUT]
+    Name              tail
+    Tag               wazuh.alerts
+    Path              /var/ossec/logs/alerts/alerts.json
+    Parser            wazuh_json
+    DB                /var/log/flb-state/alerts.db
+    Refresh_Interval  5
+    Rotate_Wait       30
+    Mem_Buf_Limit     32MB
+    Skip_Long_Lines   On
+
+# ---- Wazuh full archives (every event) - controlled by FORWARD_ARCHIVES ----
+# When FORWARD_ARCHIVES=false the file below simply won't exist and this input
+# stays idle. Enable archives in sensor.conf to populate it.
+[INPUT]
+    Name              tail
+    Tag               wazuh.archives
+    Path              /var/ossec/logs/archives/archives.json
+    Parser            wazuh_json
+    DB                /var/log/flb-state/archives.db
+    Refresh_Interval  5
+    Rotate_Wait       30
+    Mem_Buf_Limit     32MB
+    Skip_Long_Lines   On
+
+# ---- The manager's own operational log ----
+[INPUT]
+    Name              tail
+    Tag               wazuh.ossec
+    Path              /var/ossec/logs/ossec.log
+    DB                /var/log/flb-state/ossec.db
+    Refresh_Interval  5
+    Rotate_Wait       30
+    Mem_Buf_Limit     16MB
+    Skip_Long_Lines   On
+
+# ---- Tag every record with this sensor's node name ----
+[FILTER]
+    Name    record_modifier
+    Match   *
+    Record  sensor_node ${WAZUH_NODE_NAME}
+    Record  cluster ${WAZUH_CLUSTER_NAME}
+
+# ---- Ship to Graylog via GELF ----
+[OUTPUT]
+    Name                   gelf
+    Match                  *
+    Host                   ${GRAYLOG_HOST}
+    Port                   ${GRAYLOG_PORT}
+    Mode                   ${GELF_MODE}
+    Gelf_Short_Message_Key message
+    tls                    ${GELF_TLS}
+    tls.verify             off
+    Retry_Limit            False

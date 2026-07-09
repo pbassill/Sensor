@@ -1,0 +1,12 @@
+# Client-specific configuration (contains secrets: cluster key, passwords)
+sensor.conf
+
+# Rendered configuration produced by ./configure.sh
+/generated/
+.env
+
+# Editor / OS noise
+*.swp
+*~
+.DS_Store
+Thumbs.db

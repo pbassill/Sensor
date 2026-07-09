@@ -1,0 +1,77 @@
+# =============================================================================
+# Sensor configuration
+# -----------------------------------------------------------------------------
+# This is the ONLY file you need to edit. Copy it to "sensor.conf", fill in the
+# values for your site, then run ./configure.sh followed by docker compose up -d.
+#
+# Every value below is substituted into the Wazuh and Fluent Bit configuration
+# when you run ./configure.sh. Do not commit sensor.conf - it holds secrets.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Wazuh cluster
+# -----------------------------------------------------------------------------
+# This sensor runs a Wazuh manager as a WORKER node that joins your central
+# Wazuh cluster. The worker connects OUTBOUND to the master on the cluster port
+# (default 1516). Local agents on this internal network report to this worker.
+
+# A friendly name for your cluster. MUST match the name configured on the master.
+WAZUH_CLUSTER_NAME=reeve-cluster
+
+# Unique name for THIS sensor node within the cluster (no spaces).
+WAZUH_NODE_NAME=sensor-01
+
+# Node type. Keep this as "worker" - the master lives on your central cluster.
+WAZUH_NODE_TYPE=worker
+
+# Cluster key. MUST be identical to the key on the master and every other node.
+# Generate one on the master with: openssl rand -hex 16
+WAZUH_CLUSTER_KEY=CHANGE_ME_32_HEX_CHARACTERS_000000
+
+# The PUBLIC IP (or DNS name) of your central Wazuh cluster master.
+# This is what the sensor registers itself against.
+WAZUH_MASTER_ADDRESS=203.0.113.10
+
+# Cluster communication port on the master (Wazuh default is 1516).
+WAZUH_CLUSTER_PORT=1516
+
+# Set to "no" to enable clustering, "yes" to run this manager standalone.
+WAZUH_CLUSTER_DISABLED=no
+
+# -----------------------------------------------------------------------------
+# Local agent enrollment
+# -----------------------------------------------------------------------------
+# Password used by local agents to auto-enroll against this sensor (port 1515).
+# Set a strong value and use the same password in the agent install commands.
+WAZUH_REGISTRATION_PASSWORD=CHANGE_ME_enrollment_password
+
+# -----------------------------------------------------------------------------
+# Graylog / Fluent Bit
+# -----------------------------------------------------------------------------
+# Fluent Bit tails the Wazuh alert and log files and forwards them to Graylog
+# using the GELF protocol.
+
+# Graylog host that exposes a GELF input.
+GRAYLOG_HOST=graylog.internal.example.com
+
+# GELF input port on Graylog (GELF default is 12201).
+GRAYLOG_PORT=12201
+
+# GELF transport: tcp, udp, or tls.
+GRAYLOG_PROTOCOL=tcp
+
+# How often (seconds) Fluent Bit flushes buffered records to Graylog.
+FLUENT_BIT_FLUSH=5
+
+# Also forward the full Wazuh archives (every event, not just alerts).
+# "true" is high volume - only enable if Graylog is sized for it.
+FORWARD_ARCHIVES=false
+
+# -----------------------------------------------------------------------------
+# General
+# -----------------------------------------------------------------------------
+# Wazuh version. Manager and agents should match this major.minor version.
+WAZUH_VERSION=4.9.2
+
+# Timezone for the containers (IANA name).
+SENSOR_TIMEZONE=Europe/London
