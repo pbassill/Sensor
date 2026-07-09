@@ -4,69 +4,63 @@
 # ./configure.sh. Do not edit generated/fluent-bit/fluent-bit.conf directly -
 # edit sensor.conf and re-run ./configure.sh.
 #
-# Fluent Bit tails the Wazuh manager's alert and log files and ships them to
-# Graylog over GELF.
+# Fluent Bit tails the Wazuh manager's alert files and ships them over TCP
+# (json_lines) to the central collector defined in sensor.conf.
 # =============================================================================
 
 [SERVICE]
-    Flush         ${FLUENT_BIT_FLUSH}
-    Log_Level     info
-    Daemon        off
-    Parsers_File  parsers.conf
-    HTTP_Server   Off
+    flush                     ${FLUENT_BIT_FLUSH}
+    daemon                    Off
+    log_level                 info
+    parsers_file              parsers.conf
+    plugins_file              plugins.conf
+    http_server               On
+    http_listen               0.0.0.0
+    http_port                 2020
+    storage.metrics           on
+    storage.path              /var/log/flb-storage/
+    storage.sync              normal
+    storage.checksum          off
+    storage.backlog.mem_limit 128M
+    Log_File                  /var/log/td-agent-bit.log
 
 # ---- Wazuh JSON alerts (level >= log_alert_level in ossec.conf) ----
 [INPUT]
-    Name              tail
-    Tag               wazuh.alerts
-    Path              /var/ossec/logs/alerts/alerts.json
-    Parser            wazuh_json
-    DB                /var/log/flb-state/alerts.db
-    Refresh_Interval  5
-    Rotate_Wait       30
-    Mem_Buf_Limit     32MB
-    Skip_Long_Lines   On
+    name              tail
+    path              /var/ossec/logs/alerts/alerts.json
+    tag               wazuh
+    parser            json
+    Buffer_Max_Size   5MB
+    Buffer_Chunk_Size 400k
+    storage.type      filesystem
+    Mem_Buf_Limit     512MB
 
-# ---- Wazuh full archives (every event) - controlled by FORWARD_ARCHIVES ----
-# When FORWARD_ARCHIVES=false the file below simply won't exist and this input
-# stays idle. Enable archives in sensor.conf to populate it.
+# ---- Wazuh full archives (every event) - only present if FORWARD_ARCHIVES=true.
+# The file simply won't exist when archives are disabled, so this input idles.
 [INPUT]
-    Name              tail
-    Tag               wazuh.archives
-    Path              /var/ossec/logs/archives/archives.json
-    Parser            wazuh_json
-    DB                /var/log/flb-state/archives.db
-    Refresh_Interval  5
-    Rotate_Wait       30
-    Mem_Buf_Limit     32MB
-    Skip_Long_Lines   On
+    name              tail
+    path              /var/ossec/logs/archives/archives.json
+    tag               wazuh
+    parser            json
+    Buffer_Max_Size   5MB
+    Buffer_Chunk_Size 400k
+    storage.type      filesystem
+    Mem_Buf_Limit     512MB
 
-# ---- The manager's own operational log ----
-[INPUT]
-    Name              tail
-    Tag               wazuh.ossec
-    Path              /var/ossec/logs/ossec.log
-    DB                /var/log/flb-state/ossec.db
-    Refresh_Interval  5
-    Rotate_Wait       30
-    Mem_Buf_Limit     16MB
-    Skip_Long_Lines   On
-
-# ---- Tag every record with this sensor's node name ----
+# ---- Tag every record with this sensor's identity so the collector can tell
+#      one internal-network sensor from another across the fleet. ----
 [FILTER]
     Name    record_modifier
-    Match   *
+    Match   wazuh
     Record  sensor_node ${WAZUH_NODE_NAME}
     Record  cluster ${WAZUH_CLUSTER_NAME}
 
-# ---- Ship to Graylog via GELF ----
+# ---- Forward to the central collector (Graylog / XDR) ----
 [OUTPUT]
-    Name                   gelf
-    Match                  *
-    Host                   ${GRAYLOG_HOST}
-    Port                   ${GRAYLOG_PORT}
-    Mode                   ${GELF_MODE}
-    Gelf_Short_Message_Key message
-    tls                    ${GELF_TLS}
-    tls.verify             off
-    Retry_Limit            False
+    Name          tcp
+    Host          ${LOG_DEST_HOST}
+    Port          ${LOG_DEST_PORT}
+    net.keepalive on
+    Match         wazuh
+    Format        json_lines
+    json_date_key true

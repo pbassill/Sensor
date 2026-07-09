@@ -58,14 +58,18 @@ services:
       - wazuh-manager
     environment:
       - TZ=${SENSOR_TIMEZONE:-UTC}
+    ports:
+      # Fluent Bit HTTP metrics/health endpoint (optional).
+      - "2020:2020/tcp"
     volumes:
-      # Rendered Fluent Bit config (Graylog target comes from sensor.conf).
+      # Rendered Fluent Bit config (collector target comes from sensor.conf).
       - ./generated/fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
       - ./generated/fluent-bit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
+      - ./generated/fluent-bit/plugins.conf:/fluent-bit/etc/plugins.conf:ro
       # Read the manager's logs.
       - wazuh_logs:/var/ossec/logs:ro
-      # Persist tail read offsets across restarts.
-      - fluentbit_state:/var/log/flb-state
+      # Filesystem storage buffer (storage.path in the SERVICE block).
+      - fluentbit_storage:/var/log/flb-storage
     networks:
       - sensor
 
@@ -79,7 +83,7 @@ volumes:
   wazuh_agentless:
   wazuh_wodles:
   wazuh_logs:
-  fluentbit_state:
+  fluentbit_storage:
 
 networks:
   sensor:

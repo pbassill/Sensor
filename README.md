@@ -6,8 +6,8 @@ security **sensor**. It runs:
 - **Wazuh manager** as a *worker node* that registers into your central Wazuh
   cluster over your public IP. Local agents on the internal network enroll and
   report to this sensor; the sensor syncs their data up to the cluster master.
-- **Fluent Bit**, which tails the Wazuh alert/log files and forwards them to
-  your **Graylog** service over GELF.
+- **Fluent Bit**, which tails the Wazuh alert files and forwards them over TCP
+  (`json_lines`) to your central log collector (**Graylog / XDR** ingest).
 
 Everything is driven by a single client-editable file, **`sensor.conf`**. You
 never touch the Wazuh or Fluent Bit configuration directly.
@@ -20,10 +20,10 @@ never touch the Wazuh or Fluent Bit configuration directly.
         │ 1514/1515   │             │
         └─────────────┼─────────────┘
                       ▼
-             ┌───────────────────┐        GELF        ┌──────────┐
-             │   S E N S O R     │ ────────────────►  │ Graylog  │
-             │                   │  (Fluent Bit)      └──────────┘
-             │  Wazuh manager    │
+             ┌───────────────────┐   TCP json_lines   ┌───────────┐
+             │   S E N S O R     │ ────────────────►  │ Collector │
+             │                   │  (Fluent Bit)      │ Graylog / │
+             │  Wazuh manager    │                    │   XDR     │
              │   (worker node)   │ ──── cluster 1516 ──► Public IP
              │  + Fluent Bit     │                       (Wazuh master)
              └───────────────────┘
@@ -35,7 +35,7 @@ never touch the Wazuh or Fluent Bit configuration directly.
 - `bash`, `envsubst` (`gettext-base`), and `openssl` on the host
 - Outbound reachability from the sensor to:
   - your Wazuh cluster master on the cluster port (default **1516**)
-  - your Graylog GELF input (default **12201**)
+  - your log collector's TCP input (default **55001**)
 - Inbound reachability from local agents to the sensor on **1514/1515**
 
 Sizing: `vm.max_map_count` and file/mem limits are set in the compose file; the
@@ -51,7 +51,7 @@ cd Sensor
 cp sensor.conf.example sensor.conf
 
 # 2. Edit it for your site (cluster master public IP, cluster key,
-#    Graylog host, enrollment password, ...)
+#    collector host, enrollment password, ...)
 $EDITOR sensor.conf
 
 # 3. Render the Wazuh + Fluent Bit configuration
@@ -77,14 +77,14 @@ key groups:
 |----------------|-----------------------------------------------------------------|
 | Wazuh cluster  | Cluster name, node name, **cluster key**, **master public IP**, port |
 | Agent enroll   | Enrollment password local agents use to register (port 1515)    |
-| Graylog        | Graylog host, GELF port, transport (tcp/udp/tls), flush interval |
+| Log forwarding | Collector host, TCP port, flush interval, forward-archives flag |
 | General        | Wazuh version, timezone, whether to forward full archives       |
 
 `./configure.sh` reads `sensor.conf`, validates it, and renders:
 
 - `generated/wazuh/ossec.conf` — the manager config (cluster block filled in)
 - `generated/wazuh/authd.pass` — the enrollment password
-- `generated/fluent-bit/fluent-bit.conf` — the Graylog output
+- `generated/fluent-bit/fluent-bit.conf` — the collector (TCP json_lines) output
 - `.env` — image tags / node name / timezone for Docker Compose
 
 The `generated/` directory and `sensor.conf` are git-ignored — the cluster key
@@ -147,7 +147,8 @@ docker compose down
 | 1516 | TCP   | outbound  | Cluster sync to the master (public IP)    |
 | 514  | UDP   | inbound   | Optional syslog input                     |
 | 55000| TCP   | inbound   | Optional Wazuh API                        |
-| GELF | TCP/UDP | outbound | Fluent Bit → Graylog (default 12201)      |
+| 2020 | TCP   | inbound   | Optional Fluent Bit metrics/health        |
+| 55001| TCP   | outbound  | Fluent Bit → collector (json_lines)       |
 
 ## Troubleshooting
 
@@ -155,10 +156,11 @@ docker compose down
   `WAZUH_CLUSTER_NAME`, and Wazuh version match the master, and that the sensor
   can reach the master's public IP on 1516. Check
   `docker exec sensor-wazuh-manager /var/ossec/bin/cluster_control -l`.
-- **No logs in Graylog:** verify the GELF input exists in Graylog on
-  `GRAYLOG_PORT`, that `GRAYLOG_PROTOCOL` matches the input type, and check
-  `docker compose logs -f fluent-bit`. Set `log_alert_level` expectations —
-  only alerts at level ≥ 3 are written to `alerts.json` by default.
+- **No logs in the collector:** verify the collector has a raw/TCP input
+  listening on `LOG_DEST_PORT` that accepts `json_lines`, that the sensor can
+  reach `LOG_DEST_HOST` on that port, and check
+  `docker compose logs -f fluent-bit`. Note only alerts at level ≥ 3 are
+  written to `alerts.json` by default (set by `log_alert_level` in the manager).
 - **Agents won't connect:** see the troubleshooting section in
   [`docs/agent-installation.md`](docs/agent-installation.md).
 

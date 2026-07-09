@@ -43,7 +43,7 @@ require() {
 
 for v in WAZUH_CLUSTER_NAME WAZUH_NODE_NAME WAZUH_NODE_TYPE WAZUH_CLUSTER_KEY \
          WAZUH_MASTER_ADDRESS WAZUH_CLUSTER_PORT WAZUH_CLUSTER_DISABLED \
-         WAZUH_REGISTRATION_PASSWORD GRAYLOG_HOST GRAYLOG_PORT GRAYLOG_PROTOCOL; do
+         WAZUH_REGISTRATION_PASSWORD LOG_DEST_HOST LOG_DEST_PORT FLUENT_BIT_FLUSH; do
   require "$v"
 done
 
@@ -52,14 +52,6 @@ if [[ "$WAZUH_CLUSTER_KEY" == CHANGE_ME* ]]; then
   echo "       Generate one on your master with: openssl rand -hex 16" >&2
   exit 1
 fi
-
-# ---- Map GELF protocol -> Fluent Bit gelf 'Mode' + tls flag ----
-case "${GRAYLOG_PROTOCOL,,}" in
-  tcp) export GELF_MODE="tcp"; export GELF_TLS="off" ;;
-  udp) export GELF_MODE="udp"; export GELF_TLS="off" ;;
-  tls) export GELF_MODE="tls"; export GELF_TLS="on"  ;;
-  *) echo "ERROR: GRAYLOG_PROTOCOL must be tcp, udp, or tls (got '$GRAYLOG_PROTOCOL')" >&2; exit 1 ;;
-esac
 
 # ---- Render ----
 command -v envsubst >/dev/null 2>&1 || {
@@ -72,6 +64,7 @@ mkdir -p generated/wazuh generated/fluent-bit
 envsubst < config/wazuh/ossec.conf.template          > generated/wazuh/ossec.conf
 envsubst < config/fluent-bit/fluent-bit.conf.template > generated/fluent-bit/fluent-bit.conf
 cp config/fluent-bit/parsers.conf                       generated/fluent-bit/parsers.conf
+cp config/fluent-bit/plugins.conf                       generated/fluent-bit/plugins.conf
 
 # ---- Write the local agent enrollment password for the manager ----
 # (Mounted via docker-compose into the manager for authd.)
@@ -92,5 +85,6 @@ echo "Rendered configuration into ./generated"
 echo "  - generated/wazuh/ossec.conf"
 echo "  - generated/fluent-bit/fluent-bit.conf"
 echo "  - generated/fluent-bit/parsers.conf"
+echo "  - generated/fluent-bit/plugins.conf"
 echo
 echo "Next: docker compose up -d"

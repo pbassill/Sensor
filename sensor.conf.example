@@ -46,25 +46,22 @@ WAZUH_CLUSTER_DISABLED=no
 WAZUH_REGISTRATION_PASSWORD=CHANGE_ME_enrollment_password
 
 # -----------------------------------------------------------------------------
-# Graylog / Fluent Bit
+# Log forwarding (Fluent Bit)
 # -----------------------------------------------------------------------------
-# Fluent Bit tails the Wazuh alert and log files and forwards them to Graylog
-# using the GELF protocol.
+# Fluent Bit tails the Wazuh alerts and forwards them over TCP (json_lines) to
+# your central log collector (Graylog / XDR ingest endpoint).
 
-# Graylog host that exposes a GELF input.
-GRAYLOG_HOST=graylog.internal.example.com
+# Destination host that receives the forwarded Wazuh logs.
+LOG_DEST_HOST=xdr.lon.cyber-defence.io
 
-# GELF input port on Graylog (GELF default is 12201).
-GRAYLOG_PORT=12201
+# Destination TCP port (raw / json_lines input on the collector).
+LOG_DEST_PORT=55001
 
-# GELF transport: tcp, udp, or tls.
-GRAYLOG_PROTOCOL=tcp
-
-# How often (seconds) Fluent Bit flushes buffered records to Graylog.
+# How often (seconds) Fluent Bit flushes buffered records to the collector.
 FLUENT_BIT_FLUSH=5
 
 # Also forward the full Wazuh archives (every event, not just alerts).
-# "true" is high volume - only enable if Graylog is sized for it.
+# "true" is high volume - only enable if the collector is sized for it.
 FORWARD_ARCHIVES=false
 
 # -----------------------------------------------------------------------------
