@@ -55,10 +55,10 @@
     Record  sensor_node ${WAZUH_NODE_NAME}
     Record  cluster ${WAZUH_CLUSTER_NAME}
 
-# ---- Forward to the central collector (Graylog / XDR) ----
+# ---- Forward to Graylog behind the central load balancer ----
 [OUTPUT]
     Name          tcp
-    Host          ${LOG_DEST_HOST}
+    Host          ${CENTRAL_HOST}
     Port          ${LOG_DEST_PORT}
     net.keepalive on
     Match         wazuh

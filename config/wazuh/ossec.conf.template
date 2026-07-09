@@ -57,8 +57,8 @@
   </auth>
 
   <!-- =======================================================================
-       Cluster: this sensor is a WORKER that joins the central Wazuh cluster
-       reachable at ${WAZUH_MASTER_ADDRESS}:${WAZUH_CLUSTER_PORT}.
+       Cluster: this sensor is a WORKER that joins the central Wazuh cluster,
+       reachable through the load balancer at ${CENTRAL_HOST}:${WAZUH_CLUSTER_PORT}.
        ======================================================================= -->
   <cluster>
     <name>${WAZUH_CLUSTER_NAME}</name>
@@ -68,7 +68,7 @@
     <port>${WAZUH_CLUSTER_PORT}</port>
     <bind_addr>0.0.0.0</bind_addr>
     <nodes>
-      <node>${WAZUH_MASTER_ADDRESS}</node>
+      <node>${CENTRAL_HOST}</node>
     </nodes>
     <hidden>no</hidden>
     <disabled>${WAZUH_CLUSTER_DISABLED}</disabled>

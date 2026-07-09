@@ -9,11 +9,25 @@
 # =============================================================================
 
 # -----------------------------------------------------------------------------
+# Central connectivity
+# -----------------------------------------------------------------------------
+# One load balancer fronts your central estate: the Wazuh cluster master, the
+# Wazuh API, and Graylog. Set it once here and it is reused everywhere below.
+#
+# Outbound ports this sensor needs to reach CENTRAL_HOST:
+#   1516  Wazuh cluster sync   (worker -> master)         [required]
+#   55000 Wazuh API                                       [required]
+#   55001 Graylog (Fluent Bit json_lines)                 [required]
+#   1514  Wazuh agent events   (only if you route via it) [optional]
+#   1515  Wazuh agent enrol     (only if you route via it) [optional]
+CENTRAL_HOST=xdr.lon.cyber-defence.io
+
+# -----------------------------------------------------------------------------
 # Wazuh cluster
 # -----------------------------------------------------------------------------
 # This sensor runs a Wazuh manager as a WORKER node that joins your central
-# Wazuh cluster. The worker connects OUTBOUND to the master on the cluster port
-# (default 1516). Local agents on this internal network report to this worker.
+# Wazuh cluster. The worker connects OUTBOUND to the master (CENTRAL_HOST) on
+# the cluster port. Local agents on this internal network report to this worker.
 
 # A friendly name for your cluster. MUST match the name configured on the master.
 WAZUH_CLUSTER_NAME=reeve-cluster
@@ -28,12 +42,11 @@ WAZUH_NODE_TYPE=worker
 # Generate one on the master with: openssl rand -hex 16
 WAZUH_CLUSTER_KEY=CHANGE_ME_32_HEX_CHARACTERS_000000
 
-# The PUBLIC IP (or DNS name) of your central Wazuh cluster master.
-# This is what the sensor registers itself against.
-WAZUH_MASTER_ADDRESS=203.0.113.10
-
-# Cluster communication port on the master (Wazuh default is 1516).
+# Cluster sync port that the load balancer routes to the master (default 1516).
 WAZUH_CLUSTER_PORT=1516
+
+# Central Wazuh API port (the worker/manager reaches this on CENTRAL_HOST).
+WAZUH_API_PORT=55000
 
 # Set to "no" to enable clustering, "yes" to run this manager standalone.
 WAZUH_CLUSTER_DISABLED=no
@@ -49,12 +62,9 @@ WAZUH_REGISTRATION_PASSWORD=CHANGE_ME_enrollment_password
 # Log forwarding (Fluent Bit)
 # -----------------------------------------------------------------------------
 # Fluent Bit tails the Wazuh alerts and forwards them over TCP (json_lines) to
-# your central log collector (Graylog / XDR ingest endpoint).
+# Graylog, which sits behind CENTRAL_HOST on the port below.
 
-# Destination host that receives the forwarded Wazuh logs.
-LOG_DEST_HOST=xdr.lon.cyber-defence.io
-
-# Destination TCP port (raw / json_lines input on the collector).
+# Graylog json_lines input port on the load balancer (default 55001).
 LOG_DEST_PORT=55001
 
 # How often (seconds) Fluent Bit flushes buffered records to the collector.
@@ -67,7 +77,8 @@ FORWARD_ARCHIVES=false
 # -----------------------------------------------------------------------------
 # General
 # -----------------------------------------------------------------------------
-# Wazuh version. Manager and agents should match this major.minor version.
+# Wazuh version. Manager and agents should match this major.minor version, and
+# it MUST match the version running on your central cluster master.
 WAZUH_VERSION=4.9.2
 
 # Timezone for the containers (IANA name).
